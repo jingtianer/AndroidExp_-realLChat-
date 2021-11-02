@@ -34,9 +34,6 @@ class BaseApp: Application() {
             // 首次启动， 创建通知channel
 
         }
-
-
-
     }
     companion object {
         var instance:BaseApp by Delegates.notNull()
