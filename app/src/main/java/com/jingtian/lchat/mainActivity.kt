@@ -62,8 +62,9 @@ class mainActivity : AppCompatActivity() {
                         hint = "你的名字"
                     }
                     val et_ip = editText {
-                        hint = "主机ip"
+                        hint = "主机ip:"
                     }
+                    et_ip.setText(R.string.server_ip)
                     positiveButton("确认") {
                         val ips = et_ip.text.toString().trim().split('.')
                         if(checkIp(ips)) {

@@ -14,13 +14,17 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.jingtian.lchat.Net.OKHttpHelper
 import com.jingtian.lchat.util.DBHelper
+import com.jingtian.lchat.util.Translator
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.Response
+import org.jetbrains.anko.*
+import org.jetbrains.anko.alert
 import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.sdk27.coroutines.onClick
 import org.jetbrains.anko.sdk27.coroutines.onTouch
@@ -29,12 +33,16 @@ import java.io.IOException
 import java.util.*
 import kotlin.properties.Delegates
 
+import org.jetbrains.anko.*
+import org.jetbrains.anko.sdk27.coroutines.onLongClick
+
 class chatActivity : AppCompatActivity() {
     var mIsRefreshing = false   //当前列表是否正在刷新
     var rv :RecyclerView by Delegates.notNull() //显示聊天记录
     val datas = arrayListOf<mesg>() //与当前用户的聊天记录
     var to_id:String by Delegates.notNull() //当前聊天用户的id
     var get_new_mesg:Timer? = null // 每隔几秒获取全部新消息
+    var language = Translator.PLAIN
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat)
@@ -88,21 +96,135 @@ class chatActivity : AppCompatActivity() {
                 override fun onResponse(call: Call, response: Response) {}
             })
         }
-        //发送按钮点击事件
+        var radioGroup = findViewById<RadioGroup>(R.id.radioGroup)
         var et_mesg = findViewById<EditText>(R.id.chat_msg)
+        radioGroup.check(R.id.rb_plain)
+        et_mesg.isEnabled = true
+        //发送按钮点击事件
         findViewById<Button>(R.id.chat_send).setOnClickListener {
             if (!et_mesg.text.isEmpty()) {
+                radioGroup.check(R.id.rb_plain)
+                et_mesg.isEnabled = true
                 mIsRefreshing = true
                 update(et_mesg.text.toString(), dialog_data.right)
                 et_mesg.setText("")
                 rv.adapter!!.notifyItemInserted(rv.adapter!!.itemCount - 1)
                 rv.scrollToPosition(datas.size-1)
                 mIsRefreshing = false
+                language = Translator.PLAIN
             } else {
                 toast("输入发送内容")
             }
         }
+        findViewById<Button>(R.id.rb_cat).setOnClickListener {
+            try {
+                var text = et_mesg.text.toString()
+                text = when(language) {
+                    Translator.CAT->{
+                        text
+                    }
+                    Translator.DOG->{
+                        Translator.toCat(Translator.fromDog(text))
+                    }
+                    Translator.BASE64->{
+                        Translator.toCat(Translator.fromBase64(text))
+                    }
+                    else->{
+                        Translator.toCat(text)
+                    }
+                }
 
+                et_mesg.isEnabled = false
+                et_mesg.setText(text)
+                language = Translator.CAT
+            } catch (e:Exception) {
+            }
+
+        }
+        findViewById<Button>(R.id.rb_dog).setOnClickListener {
+            try {
+                var text = et_mesg.text.toString()
+                text = when (language) {
+                    Translator.CAT -> {
+                        Translator.toDog(Translator.fromCat(text))
+                    }
+
+                    Translator.DOG -> {
+                        text
+                    }
+
+                    Translator.BASE64 -> {
+                        Translator.toDog(Translator.fromBase64(text))
+                    }
+
+                    else -> {
+                        Translator.toDog(text)
+                    }
+                }
+                et_mesg.isEnabled = false
+                et_mesg.setText(text)
+                language = Translator.DOG
+            } catch (e:Exception) {
+
+            }
+
+        }
+        findViewById<Button>(R.id.rb_base64).setOnClickListener {
+            try {
+                var text = et_mesg.text.toString()
+                text = when (language) {
+                    Translator.CAT -> {
+                        Translator.toBase64(Translator.fromCat(text))
+                    }
+
+                    Translator.DOG -> {
+                        Translator.toBase64(Translator.fromDog(text))
+                    }
+
+                    Translator.BASE64 -> {
+                        text
+                    }
+
+                    else -> {
+                        Translator.toBase64(text)
+                    }
+                }
+                et_mesg.isEnabled = false
+                et_mesg.setText(text)
+                language = Translator.BASE64
+            }catch (e:Exception) {
+
+            }
+
+        }
+        findViewById<Button>(R.id.rb_plain).setOnClickListener {
+            try {
+                var text = et_mesg.text.toString()
+                text = when (language) {
+                    Translator.CAT -> {
+                        Translator.fromCat(text)
+                    }
+
+                    Translator.DOG -> {
+                        Translator.fromDog(text)
+                    }
+
+                    Translator.BASE64 -> {
+                        Translator.fromBase64(text)
+                    }
+
+                    else -> {
+                        text
+                    }
+                }
+                et_mesg.isEnabled = true
+                et_mesg.setText(text)
+                language = Translator.PLAIN
+            } catch (e:Exception) {
+
+            }
+
+        }
         //启动页面时，读取数据库中当前用户的对话， 并从服务器获取最新未读信息
         doAsync{
             val db = DBHelper.get_db(this@chatActivity, BaseApp.dbName).readableDatabase
@@ -117,7 +239,11 @@ class chatActivity : AppCompatActivity() {
             }
             cursor.close()
             mIsRefreshing = false
-
+//            et_mesg.doAfterTextChanged {
+//                language = Translator.PLAIN
+//                radioGroup.check(R.id.rb_plain)
+//                et_mesg.isEnabled = true
+//            }
             rv.adapter!!.notifyDataSetChanged()
             rv.scrollToPosition(datas.size-1)
             get_new_mesg()
@@ -186,6 +312,63 @@ class chatActivity : AppCompatActivity() {
 
             var textview = this.itemView.findViewById<TextView>(R.id.tv_item_exp1)
             textview.text = data.text
+            textview.onClick { tv->
+
+                textview.context.alert {
+                    title = "翻译"
+                    isCancelable = true
+                    var lang = Translator.PLAIN
+                    customView {
+                        radioGroup {
+                            radioButton {
+                                text = "猫语"
+                                onClick {
+                                    lang = Translator.CAT
+                                }
+                            }
+                            radioButton {
+                                text = "狗语"
+                                onClick {
+                                    lang = Translator.DOG
+                                }
+                            }
+                            radioButton {
+                                text = "base64"
+                                onClick {
+                                    lang = Translator.BASE64
+                                }
+                            }
+                        }
+                        positiveButton("确认") {bt->
+                            try {
+                                var text = textview.text.toString()
+                                text = when (lang) {
+                                    Translator.CAT -> {
+                                        Translator.fromCat(text)
+                                    }
+
+                                    Translator.DOG -> {
+                                        Translator.fromDog(text)
+                                    }
+
+                                    Translator.BASE64 -> {
+                                        Translator.fromBase64(text)
+                                    }
+
+                                    else -> {
+                                        text
+                                    }
+                                }
+                                textview.text = text
+                            }catch (e:Exception) {
+
+                            }
+                        }
+                        negativeButton("取消") {
+                        }
+                    }
+                }?.show()
+            }
             //设置图片
             var dab = BitmapFactory.decodeResource(itemView.resources, R.drawable.dog)
             var mat = Matrix()

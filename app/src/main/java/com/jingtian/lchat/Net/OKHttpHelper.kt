@@ -15,7 +15,7 @@ import java.lang.Exception
 class OKHttpHelper {
     companion object {
         fun get_server():String {
-            return "http://${BaseApp.sps.server_ip}:8080/chatlet_war"
+            return "http://${BaseApp.sps.server_ip}:8080/chatlet"
         }
         //服务器地址
         val client = OkHttpClient()
@@ -132,7 +132,7 @@ class OKHttpHelper {
                     "application/json;charset=utf-8".toMediaType())
 
             val request = Request.Builder()
-                    .url("http://${BaseApp.sps.server_ip}:8080/chatlet_war" + "/ip_check" +
+                    .url("http://${BaseApp.sps.server_ip}:8080/chatlet" + "/ip_check" +
                             "")
                     .post(body)
                     .build()
